@@ -6,7 +6,7 @@ import re
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'  # Ajusta según tu instalación
 
 # Cargar la imagen
-img = Image.open('max.jpg')
+img = Image.open('min.jpg')
 
 # Extraer texto de la imagen
 texto = pytesseract.image_to_string(img)
@@ -16,7 +16,7 @@ print("Texto extraído:")
 print(texto)
 
 # Buscar ocurrencias de la palabra y extraer números
-palabra_buscar = 'Pallet '  # Cambia esto por la palabra que buscas
+palabra_buscar = 'Count:'  # Cambia esto por la palabra que buscas
 patron = rf'{palabra_buscar}\D*(\d+)'  # Busca la palabra seguida de números
 
 numeros = re.findall(patron, texto)
