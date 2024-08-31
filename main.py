@@ -4,66 +4,67 @@ import numpy as np
 from PIL import Image
 import pytesseract
 
-# Configura el path de tesseract si no está en tu PATH
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-# Cargar la imagen
-img = cv2.imread('max2.jpg')
 
-# Convertir a espacio de color HSV para una mejor segmentación del color
-hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+def mejorar_imagen(img):
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    binary = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+    kernel = np.ones((3, 3), np.uint8)
+    opening = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel, iterations=1)
+    return opening
 
-# Definir el rango de color para el blanco (ajustar según sea necesario)
-lower_white = np.array([0, 0, 200], dtype=np.uint8)
-upper_white = np.array([180, 20, 255], dtype=np.uint8)
 
-# Crear una máscara para la hoja blanca
-mask = cv2.inRange(hsv, lower_white, upper_white)
+def extraer_texto_y_numeros(ruta_imagen, palabra_buscar):
+    img = cv2.imread(ruta_imagen)
+    img_original = img.copy()
 
-# Aplicar la máscara a la imagen original
-res = cv2.bitwise_and(img, img, mask=mask)
+    resultados = []
 
-# Convertir a escala de grises
-gray = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
+    # Lista de técnicas de preprocesamiento
+    tecnicas = [
+        ("Original", lambda x: x),
+        ("Mejorada", mejorar_imagen),
+        ("Umbral",
+         lambda x: cv2.threshold(cv2.cvtColor(x, cv2.COLOR_BGR2GRAY), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1])
+    ]
 
-# Mejorar el contraste
-gray = cv2.equalizeHist(gray)
+    for nombre_tecnica, func_tecnica in tecnicas:
+        img_procesada = func_tecnica(img_original)
+        img_pil = Image.fromarray(
+            img_procesada if len(img_procesada.shape) == 2 else cv2.cvtColor(img_procesada, cv2.COLOR_BGR2RGB))
 
-# Aplicar un umbral adaptativo para mejorar la segmentación
-binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
+        # Probar diferentes configuraciones de Tesseract
+        configuraciones = [
+            '--oem 3 --psm 6 -c preserve_interword_spaces=1',
+            '--oem 3 --psm 11 -c preserve_interword_spaces=1',
+            '--oem 3 --psm 4 -c preserve_interword_spaces=1'
+        ]
 
-# Encontrar contornos en la imagen binarizada
-contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for config in configuraciones:
+            texto = pytesseract.image_to_string(img_pil, config=config)
+            print(f"\nTexto extraído ({nombre_tecnica}, config: {config}):")
+            print(texto)
 
-# Encontrar el contorno más grande que debería ser la hoja
-max_contour = max(contours, key=cv2.contourArea)
+            # Buscar ocurrencias con un patrón más flexible
+            patron = r'(?:Count|Gount|Count)[:.]?\s*(\d+)'
+            numeros = re.findall(patron, texto, re.IGNORECASE)
+            numeros = [int(num) for num in numeros]
 
-# Crear un rectángulo que encierre el contorno más grande
-x, y, w, h = cv2.boundingRect(max_contour)
+            resultados.append((nombre_tecnica, config, numeros))
 
-# Recortar la imagen para obtener solo la hoja
-cropped = img[y:y+h, x:x+w]
+    # Encontrar el resultado con más coincidencias
+    mejor_resultado = max(resultados, key=lambda x: len(x[2]))
 
-# Convertir a una imagen de PIL para usar con pytesseract
-cropped_pil = Image.fromarray(cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB))
+    print(f"\nMejor resultado - Técnica: {mejor_resultado[0]}, Config: {mejor_resultado[1]}")
+    print(f"Números encontrados: {mejor_resultado[2]}")
 
-# Extraer texto con pytesseract usando diferentes configuraciones
-custom_config = r'--oem 3 --psm 6'  # Prueba diferentes psm (e.g., 6, 11)
-texto = pytesseract.image_to_string(cropped_pil, config=custom_config)
+    return mejor_resultado[2]
 
-# Imprimir el texto extraído
-print("Texto extraído:")
-print(texto)
 
-# Buscar ocurrencias de la palabra y extraer números
-palabra_buscar = 'Count:'  # Cambia esto por la palabra que buscas
-patron = rf'{palabra_buscar}\D*(\d+)'  # Busca la palabra seguida de números
+# Uso de la función
+ruta_imagen = 'max.jpg'
+palabra_buscar = 'Count:'
 
-numeros = re.findall(patron, texto)
-
-# Convertir los números encontrados a enteros
-numeros = list(map(int, numeros))
-
-# Imprimir los números extraídos
-print("Números extraídos:")
-print(numeros)
+numeros_encontrados = extraer_texto_y_numeros(ruta_imagen, palabra_buscar)
