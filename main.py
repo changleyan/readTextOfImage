@@ -8,7 +8,7 @@ import pytesseract
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # Cargar la imagen
-img = cv2.imread('min.jpg')
+img = cv2.imread('max2.jpg')
 
 # Convertir a espacio de color HSV para una mejor segmentación del color
 hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -26,8 +26,11 @@ res = cv2.bitwise_and(img, img, mask=mask)
 # Convertir a escala de grises
 gray = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
 
-# Aplicar un umbral para mejorar el contraste del texto
-_, binary = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY_INV)
+# Mejorar el contraste
+gray = cv2.equalizeHist(gray)
+
+# Aplicar un umbral adaptativo para mejorar la segmentación
+binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
 
 # Encontrar contornos en la imagen binarizada
 contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -44,8 +47,8 @@ cropped = img[y:y+h, x:x+w]
 # Convertir a una imagen de PIL para usar con pytesseract
 cropped_pil = Image.fromarray(cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB))
 
-# Extraer texto con pytesseract
-custom_config = r'--oem 3 --psm 6'
+# Extraer texto con pytesseract usando diferentes configuraciones
+custom_config = r'--oem 3 --psm 6'  # Prueba diferentes psm (e.g., 6, 11)
 texto = pytesseract.image_to_string(cropped_pil, config=custom_config)
 
 # Imprimir el texto extraído
