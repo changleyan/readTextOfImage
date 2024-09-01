@@ -47,7 +47,7 @@ def find_numbers_after_count(text):
 
 
 # Ruta de la imagen
-image_path = 'min.jpg'
+image_path = 'max.jpg'
 
 # Extraer texto de la imagen
 extracted_text = extract_text_from_image(image_path)
@@ -56,3 +56,8 @@ print(f"Texto extraído: {extracted_text}")
 # Buscar los números después de "Count:"
 numbers = find_numbers_after_count(extracted_text)
 print(f"Números encontrados: {numbers}")
+
+# Usar la función sum() para obtener la suma de los elementos
+suma = sum(numbers)
+
+print("El total de casos es de:", suma)
